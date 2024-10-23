@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SJF Simulation</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f4f7f6;
+        }
+
+        h1 {
+            color: #4caf50;
+            margin-bottom: 20px;
+        }
+
+        .result-list {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #4caf50;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            color: #333;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #e7f4e7;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        .summary {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #d9edf7;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Thuật toán SJF</h1>
+        <form id="sjfForm" method="POST">
+            <div class="form-group row">
+                <label for="soTienTrinh" class="col-sm-4 col-form-label">Nhập số lượng tiến trình:</label>
+                <div class="col-sm-4">
+                    <input
+                        type="number"
+                        id="soTienTrinh"
+                        name="soTienTrinh"
+                        class="form-control"
+                        min="1"
+                        required
+                    />
+                </div>
+                <div class="col-sm-4">
+                    <button type="button" class="btn btn-primary" onclick="generateInputFields()">
+                        Tạo các trường nhập
+                    </button>
+                </div>
+            </div>
+
+            <div id="tienTrinhInputs"></div>
+
+            <button type="submit" id="submitButton" class="btn btn-success" style="display: none">
+                Tính toán
+            </button>
+        </form>
+
+        <div id="ketQuaContainer" class="result-list"></div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies (jQuery and Popper.js) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        let fieldsCreated = false;
+
+        function generateInputFields() {
+            const soTienTrinh = document.getElementById("soTienTrinh").value;
+            const container = document.getElementById("tienTrinhInputs");
+            const submitButton = document.getElementById("submitButton");
+
+            // Clear existing fields
+            container.innerHTML = "";
+
+            // Create input fields based on the number of processes
+            for (let i = 0; i < soTienTrinh; i++) {
+                const div = document.createElement("div");
+                div.className = "form-group";
+                div.innerHTML = `
+                    <h3>Tiến trình ${i + 1}</h3>
+                    <label for="xuatHien_${i}">Thời điểm xuất hiện:</label>
+                    <input type="number" id="xuatHien_${i}" name="xuatHien_${i}" class="form-control" min="0" required>
+                    <label for="suDung_${i}">Thời gian sử dụng CPU:</label>
+                    <input type="number" id="suDung_${i}" name="suDung_${i}" class="form-control" min="0" required>
+                `;
+                container.appendChild(div);
+            }
+
+            submitButton.style.display = "block";
+            fieldsCreated = true;
+        }
+
+        function calculateSJF(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const soTienTrinh = document.getElementById("soTienTrinh").value;
+            const processes = [];
+
+            for (let i = 0; i < soTienTrinh; i++) {
+                const xuatHien = parseInt(document.getElementById(`xuatHien_${i}`).value);
+                const suDung = parseInt(document.getElementById(`suDung_${i}`).value);
+                processes.push({ id: i + 1, xuatHien, suDung });
+            }
+
+            const results = [];
+            let time = 0;
+            let completedProcesses = 0;
+            const n = processes.length;
+            const turnaroundTime = Array(n).fill(0);
+            const waitingTime = Array(n).fill(0);
+            const isCompleted = Array(n).fill(false);
+            
+            while (completedProcesses < n) {
+                const availableProcesses = processes.filter(p => p.xuatHien <= time && !isCompleted[p.id - 1]);
+
+                if (availableProcesses.length > 0) {
+                    availableProcesses.sort((a, b) => a.suDung - b.suDung);
+                    const processToExecute = availableProcesses[0];
+
+                    time += processToExecute.suDung;
+                    isCompleted[processToExecute.id - 1] = true;
+                    completedProcesses++;
+
+                    turnaroundTime[processToExecute.id - 1] = time - processToExecute.xuatHien;
+                    waitingTime[processToExecute.id - 1] = turnaroundTime[processToExecute.id - 1] - processToExecute.suDung;
+
+                    results.push(`Tiến trình ${processToExecute.id}: Kết thúc lúc ${time}`);
+                } else {
+                    time++;
+                }
+            }
+
+            const totalWaitingTime = waitingTime.reduce((a, b) => a + b, 0);
+            const totalTurnaroundTime = turnaroundTime.reduce((a, b) => a + b, 0);
+            const averageWaitingTime = (totalWaitingTime / n).toFixed(2);
+            const averageTurnaroundTime = (totalTurnaroundTime / n).toFixed(2);
+
+            const resultsContainer = document.getElementById("ketQuaContainer");
+            resultsContainer.innerHTML = `
+                <h2>Kết quả</h2>
+                <ul>${results.map(ket => `<li>${ket}</li>`).join('')}</ul>
+                <div class="summary">
+                    <h3>Thời gian chờ trung bình: ${averageWaitingTime}</h3>
+                    <h3>Thời gian lưu lại hệ thống trung bình: ${averageTurnaroundTime}</h3>
+                </div>
+            `;
+        }
+
+        // Prevent form submission if fields are not created
+        document.addEventListener("DOMContentLoaded", function () {
+            document
+                .querySelector("#sjfForm")
+                .addEventListener("submit", calculateSJF);
+        });
+    </script>
+</body>
+</html>
